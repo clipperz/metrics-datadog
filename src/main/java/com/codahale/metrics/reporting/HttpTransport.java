@@ -1,4 +1,4 @@
-package com.yammer.metrics.reporting;
+package com.codahale.metrics.reporting;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

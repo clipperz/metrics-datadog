@@ -1,16 +1,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.vistarmedia</groupId>
 	<artifactId>metrics-datadog</artifactId>
 	<version>0.0.18-SNAPSHOT</version>
-  <packaging>jar</packaging>
+	<packaging>jar</packaging>
 	<name>Datadog Metrics Support</name>
 	<properties>
-		<metrics.version>2.0.0</metrics.version>
+		<metrics.version>3.0.1</metrics.version>
 		<jackson.version>2.0.1</jackson.version>
 	</properties>
-	<build>
+	<!-- build>
 		<extensions>
 			<extension>
 				<groupId>org.kuali.maven</groupId>
@@ -29,10 +29,10 @@
 				</configuration>
 			</plugin>
 		</plugins>
-	</build>
+	</build -->
 	<dependencies>
 		<dependency>
-			<groupId>com.yammer.metrics</groupId>
+			<groupId>com.codahale.metrics</groupId>
 			<artifactId>metrics-core</artifactId>
 			<version>${metrics.version}</version>
 			<type>jar</type>
@@ -62,7 +62,7 @@
 		</dependency>
 	</dependencies>
 
-	<distributionManagement>
+	<!-- distributionManagement>
 		<snapshotRepository>
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven.vistarmedia.com</id>
@@ -70,5 +70,5 @@
 			<url>s3://maven.vistarmedia.com/maven/snapshots</url>
 			<layout>default</layout>
 		</snapshotRepository>
-	</distributionManagement>
+	</distributionManagement -->
 </project>

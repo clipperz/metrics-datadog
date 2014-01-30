@@ -1,4 +1,4 @@
-package com.yammer.metrics.reporting;
+package com.codahale.metrics.reporting;
 
 import static org.junit.Assert.*;
 
@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import com.yammer.metrics.reporting.model.DatadogGauge;
+import com.codahale.metrics.reporting.model.DatadogGauge;
 
 public class DatadogGaugeTest {
 
