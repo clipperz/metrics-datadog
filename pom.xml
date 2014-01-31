@@ -10,14 +10,14 @@
 		<metrics.version>3.0.1</metrics.version>
 		<jackson.version>2.0.1</jackson.version>
 	</properties>
-	<!-- build>
-		<extensions>
+	<build>
+		<!-- extensions>
 			<extension>
 				<groupId>org.kuali.maven</groupId>
 				<artifactId>kuali-wagon-s3</artifactId>
 				<version>1.0.22</version>
 			</extension>
-		</extensions>
+		</extensions -->
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -29,7 +29,7 @@
 				</configuration>
 			</plugin>
 		</plugins>
-	</build -->
+	</build>
 	<dependencies>
 		<dependency>
 			<groupId>com.codahale.metrics</groupId>
