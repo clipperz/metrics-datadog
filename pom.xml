@@ -3,11 +3,11 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.clipperz</groupId>
 	<artifactId>metrics-datadog</artifactId>
-	<version>0.0.2-SNAPSHOT</version>
+	<version>0.0.2</version>
 	<packaging>jar</packaging>
 	<name>Datadog Metrics Support</name>
 	<properties>
-		<metrics.version>3.0.1</metrics.version>
+		<metrics.version>3.0.2</metrics.version>
 		<jackson.version>2.0.1</jackson.version>
 	</properties>
 	<build>
