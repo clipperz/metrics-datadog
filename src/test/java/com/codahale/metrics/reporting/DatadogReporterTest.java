@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -24,7 +26,7 @@ import static org.junit.Assert.*;
 public class DatadogReporterTest {
 	
 	MetricRegistry registry;
-	MockTransport transport;
+	MockHttpTransport transport;
 	String host;
 	Clock clock;
 	DatadogReporter reporter;
@@ -40,7 +42,7 @@ public class DatadogReporterTest {
 	@Before
 	public void setUp() {
 		registry = new MetricRegistry();
-		transport = new MockTransport();
+		transport = new MockHttpTransport(registry.timer("internal.TestSendTimer"));
 		host = "tests";
 		clock = Clock.defaultClock();
 		reporter = DatadogReporter.forRegistry(registry)
@@ -52,6 +54,18 @@ public class DatadogReporterTest {
 	@After
 	public void tearDown() {}
 
+	public List<Object> filter(Predicate<Object> criteria, List<Object> list) {
+		return list.stream().filter(criteria).collect(Collectors.<Object>toList());
+	}
+
+	public List<Object> filterOutInternalMetrics (List<Object> metrics) {
+		return this.filter(new Predicate<Object>() {
+			@Override public boolean test(Object value) {
+				return !((String)((HashMap)value).get("metric")).startsWith("internal.");
+			}
+		}, metrics);
+	}
+	
 //	@SuppressWarnings("unchecked")
 	@Test
 	public void testBasicSend() throws JsonParseException, JsonMappingException, IOException {
@@ -75,7 +89,7 @@ public class DatadogReporterTest {
 		Map<String, Object> request = new ObjectMapper().readValue(body, HashMap.class);
 
 		assertEquals(1, request.keySet().size());
-		List<Object> series = (List<Object>) request.get("series");
+		List<Object> series = this.filterOutInternalMetrics((List<Object>)request.get("series"));
 
 		assertEquals(2, series.size());
 		Map<String, Object> gaugeEntry = (Map<String, Object>) series.get(0);
@@ -115,7 +129,7 @@ public class DatadogReporterTest {
 		String body = new String(transport.lastRequest.getPostBody(), "UTF-8");
 
 		Map<String, Object> request = new ObjectMapper().readValue(body, HashMap.class);
-		List<Object> series = (List<Object>) request.get("series");
+		List<Object> series = this.filterOutInternalMetrics((List<Object>)request.get("series"));
 
 		for (Object o : series) {
 			HashMap<String, Object> rec = (HashMap<String, Object>) o;

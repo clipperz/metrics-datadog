@@ -1,108 +1,114 @@
 package com.codahale.metrics.reporting;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.CharBuffer;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpException;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.apache.http.nio.IOControl;
+import org.apache.http.nio.client.methods.AsyncCharConsumer;
+import org.apache.http.nio.client.methods.HttpAsyncMethods;
+import org.apache.http.nio.protocol.HttpAsyncRequestProducer;
+import org.apache.http.protocol.HttpContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ning.http.client.AsyncHandler;
-import com.ning.http.client.AsyncHttpClient;
-import com.ning.http.client.AsyncHttpClient.BoundRequestBuilder;
-import com.ning.http.client.HttpResponseBodyPart;
-import com.ning.http.client.HttpResponseHeaders;
-import com.ning.http.client.HttpResponseStatus;
-
 public class HttpTransport implements Transport {
+	protected	final CloseableHttpAsyncClient	client;
+	protected	final String					targetUrl;
+	protected	final Timer						sendTimer;
 
-	private final String apiKey;
-	private final AsyncHttpClient client;
-	private final String host;
-	private final String seriesUrl;
-	private static final Logger LOG = LoggerFactory.getLogger(HttpTransport.class);
+	private static final Logger logger = LoggerFactory.getLogger(HttpTransport.class);
 
-	public HttpTransport(String host, String apiKey) {
-		this.host = host;
-		this.apiKey = apiKey;
-		this.client = new AsyncHttpClient();
-		this.seriesUrl = String.format("https://%s/api/v1/series?api_key=%s", host, apiKey);
+	public HttpTransport(String host, String apiKey, Timer sendTimer) {
+		this.targetUrl = String.format("https://%s/api/v1/series?api_key=%s", host, apiKey);
+		this.sendTimer = sendTimer;
+		this.client = HttpAsyncClients.createDefault();
+		this.client.start();
 	}
+
+	@Override public HttpRequest prepare() throws IOException {
+		return new HttpRequest(this);
+	}
+
+	public void shutdown () throws IOException {
+		this.client.close();
+	}
+
+	//==========================================================================
 
 	public static class HttpRequest implements Transport.Request {
+		protected final HttpTransport			transport;
+		protected final ByteArrayOutputStream	requestBodyWriter;
+		protected final Timer.Context			context;
 
-		private final BoundRequestBuilder requestBuilder;
-		private final ByteArrayOutputStream out;
-
-		public HttpRequest(HttpTransport transport, String apiKey, BoundRequestBuilder requestBuilder) throws IOException {
-			this.requestBuilder = requestBuilder;
-			this.requestBuilder.addHeader("Content-Type", "application/json");
-			this.out = new ByteArrayOutputStream();
+		public HttpRequest(HttpTransport transport) {
+			this.transport = transport;
+			this.requestBodyWriter = new ByteArrayOutputStream();
+			this.context = this.transport.sendTimer.time();
 		}
 
-		public OutputStream getBodyWriter() {
-			return out;
+		@Override public OutputStream getBodyWriter() {
+			return requestBodyWriter;
 		}
 
-		public void send() throws Exception {
-			out.flush();
-			out.close();
-			requestBuilder.setBody(out.toByteArray()).execute(new AsyncHandler<Void>() {
-				public STATE onBodyPartReceived(HttpResponseBodyPart bp) throws Exception {
-					return STATE.CONTINUE;
+		@Override public void send() throws Exception {
+			HttpEntity						requestEntity;
+			HttpPost						request;
+			HttpAsyncRequestProducer		requestProducer;
+			AsyncCharConsumer<HttpResponse>	responseConsumer;
+
+			requestBodyWriter.flush();
+			requestBodyWriter.close();
+			
+			requestEntity = new ByteArrayEntity(requestBodyWriter.toByteArray(), ContentType.APPLICATION_JSON);
+			request = new HttpPost(this.transport.targetUrl);
+			request.setEntity(requestEntity);
+			
+			requestProducer = HttpAsyncMethods.create(request);
+			responseConsumer = new AsyncCharConsumer<HttpResponse>() {
+				HttpResponse response;
+				
+				@Override protected void onCharReceived(CharBuffer buf, IOControl ioctrl) throws IOException {
 				}
 
-				public Void onCompleted() throws Exception {
-					return null;
+				@Override protected void onResponseReceived(HttpResponse response) throws HttpException, IOException {
+					this.response = response;
 				}
 
-				public STATE onHeadersReceived(HttpResponseHeaders headers) throws Exception {
-					return STATE.CONTINUE;
+				@Override protected void releaseResources() {
+					context.stop();
+				}
+				
+				@Override protected HttpResponse buildResult(HttpContext context) throws Exception {
+					return this.response;
+				}
+			};
+			
+			this.transport.client.execute(requestProducer, responseConsumer, new FutureCallback<HttpResponse>() {
+				@Override public void completed(HttpResponse result) {
+					logger.debug("metrics successfully sent");
 				}
 
-				public STATE onStatusReceived(HttpResponseStatus arg0) throws Exception {
-					return STATE.CONTINUE;
+				@Override public void failed(Exception exception) {
+					logger.error("error while sending metrics", exception);
 				}
 
-				public void onThrowable(Throwable t) {
-					LOG.error("Error Writing Datadog metrics", t);
+				@Override public void cancelled() {
+					logger.warn("metrics sending cancelled");
 				}
-			}).get();
-		}
-	}
-
-	public HttpRequest prepare() throws IOException {
-		BoundRequestBuilder builder = client.preparePost(seriesUrl);
-		return new HttpRequest(this, apiKey, builder);
-	}
-
-	public void ping() {
-		String	url = String.format("https://%s/api/", "app.datadoghq.com");
-		BoundRequestBuilder builder = client.prepareGet(seriesUrl);
-		try {
-			builder.execute(new AsyncHandler<Void>() {
-				public STATE onBodyPartReceived(HttpResponseBodyPart bp) throws Exception {
-					return STATE.CONTINUE;
-				}
-
-				public Void onCompleted() throws Exception {
-					return null;
-				}
-
-				public STATE onHeadersReceived(HttpResponseHeaders headers) throws Exception {
-					return STATE.CONTINUE;
-				}
-
-				public STATE onStatusReceived(HttpResponseStatus arg0) throws Exception {
-					return STATE.CONTINUE;
-				}
-
-				public void onThrowable(Throwable t) {
-					LOG.error("Failed ping", t);
-				}
-			}).get();
-		} catch (Exception exception) {
-			LOG.error("Failed to ping target server", exception);
+			});
 		}
 	}
 }

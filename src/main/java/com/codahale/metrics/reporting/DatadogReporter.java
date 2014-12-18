@@ -30,7 +30,7 @@ public class DatadogReporter extends ScheduledReporter {
 
     private final Clock clock;
     private final String prefix;
-    private final Transport transport;
+    private final HttpTransport transport;
 	private final String host;
 
 	private static final JsonFactory jsonFactory = new JsonFactory();
@@ -85,7 +85,7 @@ public class DatadogReporter extends ScheduledReporter {
             return this;
         }
 
-        public DatadogReporter build(Transport transport, String host) {
+        public DatadogReporter build(HttpTransport transport, String host) {
             return new DatadogReporter(registry, transport, host, clock, prefix, rateUnit, durationUnit, filter);
         }
     }
@@ -94,7 +94,7 @@ public class DatadogReporter extends ScheduledReporter {
 	
     private DatadogReporter(
 		MetricRegistry registry,
-		Transport transport,
+		HttpTransport transport,
 		String host,
 		Clock clock,
 		String prefix,
@@ -130,29 +130,28 @@ public class DatadogReporter extends ScheduledReporter {
 
 	protected void writeSampling(JsonGenerator jsonOut, String name, Sampling sampling, Long timestamp) throws IOException {
 		final Snapshot snapshot = sampling.getSnapshot();
-		this.writeGauge(jsonOut, name, snapshot.getMin(),				timestamp, "min");
-		this.writeGauge(jsonOut, name, snapshot.getMax(),				timestamp, "max");
-		this.writeGauge(jsonOut, name, snapshot.getMean(),				timestamp, "mean");
-		this.writeGauge(jsonOut, name, snapshot.getStdDev(),			timestamp, "stddev");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.getMin()),				timestamp, "min");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.getMax()),				timestamp, "max");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.getMean()),			timestamp, "mean");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.getStdDev()),			timestamp, "stddev");
 
-		this.writeGauge(jsonOut, name, snapshot.getMedian(),			timestamp, "median");
-		this.writeGauge(jsonOut, name, snapshot.get75thPercentile(),	timestamp, "75percentile");
-		this.writeGauge(jsonOut, name, snapshot.get95thPercentile(),	timestamp, "95percentile");
-		this.writeGauge(jsonOut, name, snapshot.get98thPercentile(),	timestamp, "98percentile");
-		this.writeGauge(jsonOut, name, snapshot.get99thPercentile(),	timestamp, "99percentile");
-		this.writeGauge(jsonOut, name, snapshot.get999thPercentile(),	timestamp, "999percentile");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.getMedian()),			timestamp, "median");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.get75thPercentile()),	timestamp, "75percentile");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.get95thPercentile()),	timestamp, "95percentile");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.get98thPercentile()),	timestamp, "98percentile");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.get99thPercentile()),	timestamp, "99percentile");
+		this.writeGauge(jsonOut, name, this.convertDuration(snapshot.get999thPercentile()),	timestamp, "999percentile");
 	}
 
 	protected void writeMetered(JsonGenerator jsonOut, String name, Metered meter, Long timestamp) throws IOException {
 		this.writeCounter(jsonOut, name, meter.getCount(), timestamp);
-		this.writeGauge(jsonOut, name, meter.getMeanRate(),			timestamp, "mean");
-		this.writeGauge(jsonOut, name, meter.getOneMinuteRate(),	timestamp, "1MinuteRate");
-		this.writeGauge(jsonOut, name, meter.getFiveMinuteRate(),	timestamp, "5MinuteRate");
-		this.writeGauge(jsonOut, name, meter.getFifteenMinuteRate(),timestamp, "15MinuteRate");
+		this.writeGauge(jsonOut, name, this.convertRate(meter.getMeanRate()),			timestamp, "mean");
+		this.writeGauge(jsonOut, name, this.convertRate(meter.getOneMinuteRate()),		timestamp, "1MinuteRate");
+		this.writeGauge(jsonOut, name, this.convertRate(meter.getFiveMinuteRate()),		timestamp, "5MinuteRate");
+		this.writeGauge(jsonOut, name, this.convertRate(meter.getFifteenMinuteRate()),	timestamp, "15MinuteRate");
 	}
 	
-	@Override
-	public void report(
+	@Override public void report(
 		SortedMap<String, Gauge> gauges,
 		SortedMap<String, Counter> counters,
 		SortedMap<String, Histogram> histograms,
@@ -199,4 +198,14 @@ public class DatadogReporter extends ScheduledReporter {
 			LOGGER.error("Could not prepare request", exception);
 		}
 	}
+	
+    @Override public void stop() {
+		try {
+			this.transport.shutdown();
+		} catch (Exception exception) {
+			LOGGER.error("Error while trying to shutdown the HttpTransport");
+		}
+		super.stop();
+    }
+
 }
