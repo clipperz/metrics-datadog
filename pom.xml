@@ -6,7 +6,7 @@
 
 	<groupId>com.clipperz</groupId>
 	<artifactId>metrics-datadog</artifactId>
-	<version>0.0.5-SNAPSHOT</version>
+	<version>0.0.5</version>
 
 	<packaging>jar</packaging>
 
