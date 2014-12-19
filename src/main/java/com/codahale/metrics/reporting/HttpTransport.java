@@ -1,6 +1,5 @@
 package com.codahale.metrics.reporting;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -38,6 +37,10 @@ public class HttpTransport implements Transport {
 		this.client.start();
 	}
 
+	public HttpTransport(String host, String apiKey) {
+		this(host, apiKey, null);
+	}
+	
 	@Override public HttpRequest prepare() throws IOException {
 		return new HttpRequest(this);
 	}
@@ -56,7 +59,11 @@ public class HttpTransport implements Transport {
 		public HttpRequest(HttpTransport transport) {
 			this.transport = transport;
 			this.requestBodyWriter = new ByteArrayOutputStream();
-			this.context = this.transport.sendTimer.time();
+			if (this.transport.sendTimer != null) {
+				this.context = this.transport.sendTimer.time();
+			} else {
+				this.context = null;
+			}
 		}
 
 		@Override public OutputStream getBodyWriter() {
@@ -88,7 +95,9 @@ public class HttpTransport implements Transport {
 				}
 
 				@Override protected void releaseResources() {
-					context.stop();
+					if (context != null) {
+						context.stop();
+					}
 				}
 				
 				@Override protected HttpResponse buildResult(HttpContext context) throws Exception {

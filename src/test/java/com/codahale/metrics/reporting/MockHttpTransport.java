@@ -1,14 +1,13 @@
 package com.codahale.metrics.reporting;
 
-import com.codahale.metrics.Timer;
 import java.io.IOException;
 
 public class MockHttpTransport extends HttpTransport {
 	protected	int				numRequests = 0;
 	protected	MockHttpRequest	lastRequest;
 	
-	public MockHttpTransport(Timer sendTimer) {
-		super("www.example.com", "key", sendTimer);
+	public MockHttpTransport(/*Timer sendTimer*/) {
+		super("www.example.com", "key" /*, sendTimer*/);
 	}
 
 	@Override public HttpRequest prepare() throws IOException {
